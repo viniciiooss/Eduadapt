@@ -30,65 +30,38 @@ def validate_youtube_url(url):
 
 def download_youtube_audio(url):
     """Baixa o áudio do vídeo do YouTube"""
-    # Criar um diretório permanente se não existir
-    permanent_dir = os.path.join(os.getcwd(), "downloads")
-    os.makedirs(permanent_dir, exist_ok=True)
-
     with TemporaryDirectory() as temp_dir:
         audio_output_path = os.path.join(temp_dir, "downloaded_audio.mp3")
-
-        # Configurações alternativas que funcionaram
-        alt_opts = {
-            'format': 'worstaudio/worst',
-            'outtmpl': os.path.join(temp_dir, 'downloaded_audio.%(ext)s'),
+        ydl_opts = {
+            'format': 'bestaudio/best',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
+                'preferredquality': '192',
             }],
-            'youtube_include_dash_manifest': False,
-            'extract_flat': False,
-            'force_generic_extractor': True
+            'outtmpl': os.path.join(temp_dir, 'downloaded_audio.%(ext)s')
         }
 
         try:
-            with yt_dlp.YoutubeDL(alt_opts) as ydl:
-                st.info("Baixando áudio...")
-                video_info = ydl.extract_info(url, download=True)
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # Primeiro, obter informações do vídeo
+                video_info = ydl.extract_info(url, download=False)
                 video_title = video_info.get('title', 'Título não disponível')
-                video_duration = video_info.get('duration', 0)
+                video_duration = video_info.get('duration', 'Duração não disponível')
 
-                # Procurar por qualquer arquivo de áudio no diretório
-                audio_files = [f for f in os.listdir(temp_dir) if f.endswith(('.mp3', '.m4a', '.wav'))]
+                # Realizar download
+                ydl.download([url])
 
-                if audio_files:
-                    audio_path = os.path.join(temp_dir, audio_files[0])
-                    permanent_path = os.path.join(permanent_dir, "audio.mp3")
-
-                    # Converter para MP3 se necessário
-                    if not audio_path.endswith('.mp3'):
-                        st.info("Convertendo para MP3...")
-                        output_path = os.path.join(temp_dir, "final_audio.mp3")
-                        subprocess.run(['ffmpeg', '-i', audio_path, output_path])
-                        audio_path = output_path
-
-                    # Copiar em vez de mover
-                    shutil.copy2(audio_path, permanent_path)
-
-                    # Verificar se o arquivo existe e tem tamanho maior que 0
-                    if os.path.exists(permanent_path) and os.path.getsize(permanent_path) > 0:
-                        st.success("Download concluído com sucesso!")
-                        return permanent_path, video_title, video_duration
-                    else:
-                        raise Exception("Arquivo de áudio inválido ou corrompido")
-
-                else:
-                    raise Exception("Nenhum arquivo de áudio foi gerado")
+            if os.path.exists(audio_output_path):
+                permanent_path = os.path.join(os.getcwd(), "audio.mp3")
+                shutil.move(audio_output_path, permanent_path)
+                return permanent_path, video_title, video_duration
 
         except Exception as e:
-            st.error(f"Erro no download: {str(e)}")
-            if os.path.exists(permanent_dir):
-                shutil.rmtree(permanent_dir)
+            st.error(f"Erro ao baixar o áudio: {e}")
             return None, None, None
+
+
 
 def transcribe_audio_with_groq(filepath):
     """Transcreve o áudio usando Groq Whisper"""
