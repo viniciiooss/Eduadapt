@@ -30,101 +30,65 @@ def validate_youtube_url(url):
 
 def download_youtube_audio(url):
     """Baixa o áudio do vídeo do YouTube"""
+    # Criar um diretório permanente se não existir
+    permanent_dir = os.path.join(os.getcwd(), "downloads")
+    os.makedirs(permanent_dir, exist_ok=True)
+
     with TemporaryDirectory() as temp_dir:
         audio_output_path = os.path.join(temp_dir, "downloaded_audio.mp3")
 
-        # Configurações básicas iniciais
-        base_opts = {
-            'format': 'bestaudio/best',
+        # Configurações alternativas que funcionaram
+        alt_opts = {
+            'format': 'worstaudio/worst',
+            'outtmpl': os.path.join(temp_dir, 'downloaded_audio.%(ext)s'),
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
-                'preferredquality': '192',
             }],
-            'outtmpl': os.path.join(temp_dir, 'downloaded_audio.%(ext)s'),
-            'quiet': False,
-            'no_warnings': False,
-            'extract_flat': True,  # Alterado para True
-            'youtube_include_dash_manifest': False,  # Desabilita DASH
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept-Language': 'en-us,en;q=0.5',
-            }
+            'youtube_include_dash_manifest': False,
+            'extract_flat': False,
+            'force_generic_extractor': True
         }
 
         try:
-            # Tentar extrair informações primeiro
-            with yt_dlp.YoutubeDL(base_opts) as ydl:
-                try:
-                    st.info("Extraindo informações do vídeo...")
-                    video_info = ydl.extract_info(url, download=False)
-                    if not video_info:
-                        raise Exception("Não foi possível extrair informações do vídeo")
+            with yt_dlp.YoutubeDL(alt_opts) as ydl:
+                st.info("Baixando áudio...")
+                video_info = ydl.extract_info(url, download=True)
+                video_title = video_info.get('title', 'Título não disponível')
+                video_duration = video_info.get('duration', 0)
 
-                    video_title = video_info.get('title', 'Título não disponível')
-                    video_duration = video_info.get('duration', 0)
-
-                    # Configurar opções específicas para download
-                    download_opts = base_opts.copy()
-                    download_opts['extract_flat'] = False
-                    download_opts['format'] = 'bestaudio[ext=m4a]/bestaudio/best'
-
-                    st.info("Iniciando download...")
-                    with yt_dlp.YoutubeDL(download_opts) as ydl_download:
-                        ydl_download.download([url])
-
-                except Exception as e:
-                    st.warning(f"Método padrão falhou: {str(e)}")
-                    st.info("Tentando método alternativo...")
-
-                    # Tentar com configurações alternativas
-                    alt_opts = {
-                        'format': 'worstaudio/worst',
-                        'outtmpl': os.path.join(temp_dir, 'downloaded_audio.%(ext)s'),
-                        'postprocessors': [{
-                            'key': 'FFmpegExtractAudio',
-                            'preferredcodec': 'mp3',
-                        }],
-                        'youtube_include_dash_manifest': False,
-                        'extract_flat': False,
-                        'force_generic_extractor': True
-                    }
-
-                    with yt_dlp.YoutubeDL(alt_opts) as ydl_alt:
-                        video_info = ydl_alt.extract_info(url, download=True)
-                        video_title = video_info.get('title', 'Título não disponível')
-                        video_duration = video_info.get('duration', 0)
-
-            # Verificar e mover o arquivo
-            if os.path.exists(audio_output_path):
-                permanent_path = os.path.join(os.getcwd(), "audio.mp3")
-                shutil.move(audio_output_path, permanent_path)
-                st.success("Download concluído com sucesso!")
-                return permanent_path, video_title, video_duration
-            else:
                 # Procurar por qualquer arquivo de áudio no diretório
                 audio_files = [f for f in os.listdir(temp_dir) if f.endswith(('.mp3', '.m4a', '.wav'))]
+
                 if audio_files:
                     audio_path = os.path.join(temp_dir, audio_files[0])
-                    permanent_path = os.path.join(os.getcwd(), "audio.mp3")
+                    permanent_path = os.path.join(permanent_dir, "audio.mp3")
 
                     # Converter para MP3 se necessário
                     if not audio_path.endswith('.mp3'):
-                        import subprocess
+                        st.info("Convertendo para MP3...")
                         output_path = os.path.join(temp_dir, "final_audio.mp3")
                         subprocess.run(['ffmpeg', '-i', audio_path, output_path])
                         audio_path = output_path
 
-                    shutil.move(audio_path, permanent_path)
-                    st.success("Download concluído com sucesso!")
-                    return permanent_path, video_title, video_duration
+                    # Copiar em vez de mover
+                    shutil.copy2(audio_path, permanent_path)
 
-                raise Exception("Nenhum arquivo de áudio foi gerado")
+                    # Verificar se o arquivo existe e tem tamanho maior que 0
+                    if os.path.exists(permanent_path) and os.path.getsize(permanent_path) > 0:
+                        st.success("Download concluído com sucesso!")
+                        return permanent_path, video_title, video_duration
+                    else:
+                        raise Exception("Arquivo de áudio inválido ou corrompido")
+
+                else:
+                    raise Exception("Nenhum arquivo de áudio foi gerado")
 
         except Exception as e:
             st.error(f"Erro no download: {str(e)}")
+            if os.path.exists(permanent_dir):
+                shutil.rmtree(permanent_dir)
             return None, None, None
-
 
 def transcribe_audio_with_groq(filepath):
     """Transcreve o áudio usando Groq Whisper"""
