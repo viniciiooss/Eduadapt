@@ -33,8 +33,8 @@ def download_youtube_audio(url):
     with TemporaryDirectory() as temp_dir:
         audio_output_path = os.path.join(temp_dir, "downloaded_audio.mp3")
 
-        # Configurações básicas iniciais
-        base_opts = {
+        # Configurações com cookies do navegador
+        ydl_opts = {
             'format': 'bestaudio/best',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
@@ -42,53 +42,47 @@ def download_youtube_audio(url):
                 'preferredquality': '192',
             }],
             'outtmpl': os.path.join(temp_dir, 'downloaded_audio.%(ext)s'),
+            'cookiesfrombrowser': ('chrome',),  # Tenta usar cookies do Chrome
             'quiet': False,
             'no_warnings': False,
-            'extract_flat': True,  # Alterado para True
-            'youtube_include_dash_manifest': False,  # Desabilita DASH
+            'extract_flat': False,
+            'youtube_include_dash_manifest': False,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept-Language': 'en-us,en;q=0.5',
-            }
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+            'cookiefile': 'youtube.com_cookies.txt'  # Arquivo para salvar cookies
         }
 
         try:
-            # Tentar extrair informações primeiro
-            with yt_dlp.YoutubeDL(base_opts) as ydl:
+            # Criar arquivo de cookies básico
+            cookie_data = '''# Netscape HTTP Cookie File
+.youtube.com	TRUE	/	FALSE	0	CONSENT	YES+cb
+.youtube.com	TRUE	/	FALSE	0	VISITOR_INFO1_LIVE	your_visitor_info
+.youtube.com	TRUE	/	FALSE	0	YSC	your_ysc_value'''
+
+            with open('youtube.com_cookies.txt', 'w') as f:
+                f.write(cookie_data)
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
                     st.info("Extraindo informações do vídeo...")
-                    video_info = ydl.extract_info(url, download=False)
+                    video_info = ydl.extract_info(url, download=True)
+
                     if not video_info:
                         raise Exception("Não foi possível extrair informações do vídeo")
 
                     video_title = video_info.get('title', 'Título não disponível')
                     video_duration = video_info.get('duration', 0)
 
-                    # Configurar opções específicas para download
-                    download_opts = base_opts.copy()
-                    download_opts['extract_flat'] = False
-                    download_opts['format'] = 'bestaudio[ext=m4a]/bestaudio/best'
-
-                    st.info("Iniciando download...")
-                    with yt_dlp.YoutubeDL(download_opts) as ydl_download:
-                        ydl_download.download([url])
-
                 except Exception as e:
-                    st.warning(f"Método padrão falhou: {str(e)}")
-                    st.info("Tentando método alternativo...")
+                    st.warning(f"Método padrão falhou, tentando alternativa...")
 
                     # Tentar com configurações alternativas
-                    alt_opts = {
-                        'format': 'worstaudio/worst',
-                        'outtmpl': os.path.join(temp_dir, 'downloaded_audio.%(ext)s'),
-                        'postprocessors': [{
-                            'key': 'FFmpegExtractAudio',
-                            'preferredcodec': 'mp3',
-                        }],
-                        'youtube_include_dash_manifest': False,
-                        'extract_flat': False,
-                        'force_generic_extractor': True
-                    }
+                    alt_opts = ydl_opts.copy()
+                    alt_opts['format'] = 'worstaudio[ext=m4a]/worstaudio/worst'
+                    alt_opts['force_generic_extractor'] = True
 
                     with yt_dlp.YoutubeDL(alt_opts) as ydl_alt:
                         video_info = ydl_alt.extract_info(url, download=True)
@@ -99,31 +93,32 @@ def download_youtube_audio(url):
             if os.path.exists(audio_output_path):
                 permanent_path = os.path.join(os.getcwd(), "audio.mp3")
                 shutil.move(audio_output_path, permanent_path)
-                st.success("Download concluído com sucesso!")
                 return permanent_path, video_title, video_duration
             else:
-                # Procurar por qualquer arquivo de áudio no diretório
+                # Procurar por qualquer arquivo de áudio
                 audio_files = [f for f in os.listdir(temp_dir) if f.endswith(('.mp3', '.m4a', '.wav'))]
                 if audio_files:
                     audio_path = os.path.join(temp_dir, audio_files[0])
                     permanent_path = os.path.join(os.getcwd(), "audio.mp3")
-
-                    # Converter para MP3 se necessário
-                    if not audio_path.endswith('.mp3'):
-                        import subprocess
-                        output_path = os.path.join(temp_dir, "final_audio.mp3")
-                        subprocess.run(['ffmpeg', '-i', audio_path, output_path])
-                        audio_path = output_path
-
                     shutil.move(audio_path, permanent_path)
-                    st.success("Download concluído com sucesso!")
                     return permanent_path, video_title, video_duration
 
                 raise Exception("Nenhum arquivo de áudio foi gerado")
 
         except Exception as e:
             st.error(f"Erro no download: {str(e)}")
+            st.warning("O YouTube está solicitando verificação. Você pode tentar:")
+            st.markdown("""
+            1. Usar outro link do YouTube
+            2. Tentar novamente mais tarde
+            3. Verificar se o vídeo não tem restrições de idade ou região
+            """)
             return None, None, None
+
+        finally:
+            # Limpar arquivo de cookies
+            if os.path.exists('youtube.com_cookies.txt'):
+                os.remove('youtube.com_cookies.txt')
 
 
 def transcribe_audio_with_groq(filepath):
