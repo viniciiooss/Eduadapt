@@ -39,7 +39,15 @@ def download_youtube_audio(url):
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
-            'outtmpl': os.path.join(temp_dir, 'downloaded_audio.%(ext)s')
+            'outtmpl': os.path.join(temp_dir, 'downloaded_audio.%(ext)s'),
+            'nocheckcertificate': True,
+            'ignoreerrors': False,
+            'no_warnings': False,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+            }
         }
 
         try:
@@ -49,17 +57,38 @@ def download_youtube_audio(url):
                 video_title = video_info.get('title', 'Título não disponível')
                 video_duration = video_info.get('duration', 'Duração não disponível')
 
-                # Realizar download
-                ydl.download([url])
+                # Tentar diferentes formatos se o primeiro falhar
+                try:
+                    ydl.download([url])
+                except Exception as e:
+                    st.warning("Tentando formato alternativo...")
+                    ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio/best'
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl2:
+                        ydl2.download([url])
 
             if os.path.exists(audio_output_path):
                 permanent_path = os.path.join(os.getcwd(), "audio.mp3")
                 shutil.move(audio_output_path, permanent_path)
                 return permanent_path, video_title, video_duration
+            else:
+                st.error("Arquivo de áudio não foi gerado")
+                return None, None, None
 
         except Exception as e:
-            st.error(f"Erro ao baixar o áudio: {e}")
-            return None, None, None
+            st.error(f"Erro ao baixar o áudio: {str(e)}")
+            st.info("Tentando método alternativo...")
+            try:
+                # Tentar um terceiro método com configurações diferentes
+                ydl_opts['format'] = 'worstaudio/worst'
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl3:
+                    ydl3.download([url])
+                    if os.path.exists(audio_output_path):
+                        permanent_path = os.path.join(os.getcwd(), "audio.mp3")
+                        shutil.move(audio_output_path, permanent_path)
+                        return permanent_path, video_title, video_duration
+            except Exception as e2:
+                st.error(f"Todos os métodos de download falharam: {str(e2)}")
+                return None, None, None
 
 
 def transcribe_audio_with_groq(filepath):
