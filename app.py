@@ -20,7 +20,7 @@ groq_api_key = os.getenv("GROQ_API_KEY")
 if not groq_api_key:
     st.error("Erro: A chave de API do Groq não foi encontrada. Verifique as configurações do ambiente.")
 
-whisper_model = 'whisper-large-v3'
+whisper_model = 'whisper-large-v3-turbo'
 
 def validate_youtube_url(url):
     """Valida se a URL é do YouTube"""
@@ -150,11 +150,13 @@ st.sidebar.header("⚙️ Configurações")
 temperatura = st.sidebar.slider("Temperatura do Modelo", 0.0, 1.0, 0.4,
                                 help="Controla a criatividade do modelo. Valores mais altos geram respostas mais variadas.")
 modelo_llm = st.sidebar.selectbox("Modelo LLM",
-                                  ["llama-3.2-90b-vision-preview",
+                                  ["llama-3.3-70b-versatile",
+    "llama-3.3-70b-specdec",
+    "llama-3.2-90b-vision-preview",
+    "llama3-70b-8192",
     "mixtral-8x7b-32768",
-    "gemma2-9b-it",
-    "llama3-groq-70b-8192-tool-use-preview",
-    "llama3-70b-8192"])
+    "gemma2-9b-it"
+    ])
 
 # Campo de entrada de URL
 youtube_url = st.text_input("📋 Insira o link do vídeo do YouTube")

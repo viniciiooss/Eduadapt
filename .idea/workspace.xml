@@ -5,10 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6531accb-b933-4556-8549-e11797dd0fb8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/audio.mp3" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat_with_llm.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio.mp3" beforeDir="false" afterPath="$PROJECT_DIR$/audio.mp3" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -107,7 +106,11 @@
       <workItem from="1732587466635" duration="1772000" />
       <workItem from="1732818529300" duration="5832000" />
       <workItem from="1732890677549" duration="1310000" />
-      <workItem from="1733137891575" duration="9917000" />
+      <workItem from="1733137891575" duration="18711000" />
+      <workItem from="1733237863503" duration="1418000" />
+      <workItem from="1733317058637" duration="404000" />
+      <workItem from="1733396327545" duration="3692000" />
+      <workItem from="1733846132370" duration="637000" />
     </task>
     <servers />
   </component>
